@@ -261,6 +261,43 @@
         </div>
     </footer>
 
+    <!-- WhatsApp Floating Button -->
+    <a href="https://wa.me/263774132972" class="whatsapp-float" target="_blank" aria-label="Chat on WhatsApp">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="white">
+            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.588-5.946 0-6.556 5.332-11.888 11.888-11.888 3.176 0 6.161 1.237 8.404 3.48s3.48 5.228 3.48 8.404c0 6.556-5.332 11.888-11.888 11.888-2.01 0-3.986-.511-5.741-1.483l-6.142 1.696zm6.421-4.145c1.603.953 3.32 1.455 5.09 1.455 5.408 0 9.811-4.403 9.811-9.811 0-2.622-1.021-5.087-2.875-6.941s-4.319-2.875-6.941-2.875c-5.407 0-9.81 4.403-9.81 9.811 0 1.83.504 3.619 1.46 5.181l-.958 3.498 3.585-.989zm11.566-7.512c-.046-.078-.171-.125-.358-.219-.188-.094-1.11-.547-1.282-.61-.171-.062-.297-.094-.422.094-.125.188-.484.61-.594.734-.109.125-.219.141-.406.047-.188-.094-.79-.291-1.503-.927-.555-.495-.929-1.107-1.039-1.294-.109-.188-.012-.289.082-.383.085-.084.188-.219.281-.328.094-.109.125-.188.188-.312.062-.125.031-.234-.016-.328-.047-.094-.422-1.016-.578-1.391-.152-.367-.312-.317-.422-.322-.109-.005-.234-.005-.359-.005s-.328.047-.5.234c-.171.188-.656.641-.656 1.562 0 .922.671 1.813.766 1.938.094.125 1.321 2.017 3.2 2.821.447.191.794.305 1.066.391.449.143.858.123 1.181.075.36-.054 1.11-.454 1.266-.891.156-.437.156-.812.109-.891z"/>
+        </svg>
+    </a>
+
+    <!-- Custom Chatbot -->
+    <div id="chatbot-container">
+        <div id="chatbot-window">
+            <div id="chatbot-header">
+                <div class="bot-info">
+                    <img src="facer logo (2).jpg" alt="Facer Bot" class="bot-avatar">
+                    <div>
+                        <h4>Facer Bot</h4>
+                        <span class="status">Online</span>
+                    </div>
+                </div>
+                <button id="close-chat">&times;</button>
+            </div>
+            <div id="chatbot-messages">
+                <div class="message bot-message">
+                    Hi! I'm Facer Bot. How can I help you with your design or printing project today?
+                </div>
+            </div>
+            <div id="chatbot-input">
+                <input type="text" id="user-input" placeholder="Type a message...">
+                <button id="send-message">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                </button>
+            </div>
+        </div>
+        <button id="chatbot-toggle" aria-label="Open Chat">
+            <svg viewBox="0 0 24 24" width="30" height="30"><path fill="white" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"></path></svg>
+        </button>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
