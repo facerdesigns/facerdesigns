@@ -815,3 +815,12 @@ body {
         bottom: 90px; /* Adjust for WhatsApp button */
     }
 }
+
+/* SEO Hero tagline */
+.hero-tagline {
+    font-size: 1.4rem;
+    font-style: italic;
+    opacity: 0.85;
+    margin-bottom: 1rem;
+    color: var(--secondary-color);
+}
