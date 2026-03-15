@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- SEO Meta Tags -->
-    <title>Facer Designs | Professional Graphic Design & Printing Services in Harare</title>
-    <meta name="title" content="Facer Designs | Professional Graphic Design & Printing Services in Harare">
-    <meta name="description" content="Facer Designs offers premium graphic design and printing services in Harare, Zimbabwe. Specializing in corporate branding, signage, NGO reports, and promotional apparel with 24-hour quote turnaround.">
+    <title>Top Graphic Design & Printing in Harare | Facer Designs</title>
+    <meta name="title" content="Top Graphic Design & Printing in Harare | Facer Designs">
+    <meta name="description" content="Get professional graphic design, corporate branding, and high-quality printing services in Harare, Zimbabwe. Facer Designs delivers fast, reliable results. Request a free quote today!">
+    <meta name="keywords" content="graphic design harare, printing services harare, corporate branding zimbabwe, logo design harare, signage harare, printers in harare, Tendekayi Kulture Mbire">
     <link rel="canonical" href="https://facerdesigns.co.zw/">
 
     <link rel="stylesheet" href="style.css">
@@ -18,16 +19,25 @@
       "@context": "https://schema.org",
       "@type": "LocalBusiness",
       "name": "Facer Designs (Private) Limited",
-      "image": "facer new logo.png",
+      "image": "https://facerdesigns.co.zw/facer%20new%20logo.png",
       "telephone": "+263774132972",
       "email": "facerdesigns@gmail.com",
+      "priceRange": "$$",
       "address": {
         "@type": "PostalAddress",
         "streetAddress": "4672 Lenana Park",
         "addressLocality": "Harare",
         "addressCountry": "ZW"
       },
-      "url": "https://facerdesigns.co.zw"
+      "url": "https://facerdesigns.co.zw",
+      "openingHours": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          "opens": "08:00",
+          "closes": "17:00"
+        }
+      ]
     }
     </script>
 </head>
@@ -36,7 +46,7 @@
     <nav class="navbar">
         <div class="container">
             <div class="logo">
-                <img src="facer new logo.png" alt="Facer Designs Logo - Expert Branding in Harare">
+                <img src="facer new logo.png" alt="Facer Designs Company Logo">
             </div>
             <ul class="nav-menu">
                 <li><a href="#home">Home</a></li>
@@ -53,6 +63,7 @@
     <!-- Hero Section -->
     <section id="home" class="hero">
         <div class="hero-content">
+            <img src="images/Background1.jpg" alt="A collage of high-quality print and design work by Facer Designs in Harare." style="display:none;">
             <h1>Expert Graphic Design & Printing Services in Harare</h1>
             <p class="hero-tagline">Transforming Ideas into Visual Excellence</p>
             <p>Professional graphic design and printing services by Tendekayi Kulture Mbire.</p>
@@ -187,15 +198,15 @@
         <div class="container">
             <h2 class="gallery-title">Portfolio</h2>
             <div class="gallery-grid">
-                <div class="gallery-item"><img src="images/gallery/project-1.jpg" alt="Logo and Corporate Branding Design"></div>
-                <div class="gallery-item"><img src="images/gallery/project-2.jpg" alt="Signage and Large Format Printing"></div>
-                <div class="gallery-item"><img src="images/gallery/project-3.jpg" alt="Vehicle Branding and Wraps"></div>
-                <div class="gallery-item"><img src="images/gallery/project-4.jpg" alt="Promotional Gifts and Branded Apparel"></div>
-                <div class="gallery-item"><img src="images/gallery/project-5.jpg" alt="Graphic Design and Branding Portfolio"></div>
-                <div class="gallery-item"><img src="images/gallery/project-6.jpg" alt="Graphic Design and Branding Portfolio"></div>
-                <div class="gallery-item"><img src="images/gallery/project-7.jpg" alt="Graphic Design and Branding Portfolio"></div>
-                <div class="gallery-item"><img src="images/gallery/project-8.jpg" alt="Graphic Design and Branding Portfolio"></div>
-                <div class="gallery-item"><img src="images/gallery/project-9.jpg" alt="Graphic Design and Branding Portfolio"></div>
+                <div class="gallery-item"><img src="images/gallery/project-1.jpg" alt="Facer Designs portfolio example of a corporate logo design for a client in Harare."></div>
+                <div class="gallery-item"><img src="images/gallery/project-2.jpg" alt="Example of large format signage printing for a retail store in Zimbabwe."></div>
+                <div class="gallery-item"><img src="images/gallery/project-3.jpg" alt="Custom vehicle branding and wrap for a commercial van."></div>
+                <div class="gallery-item"><img src="images/gallery/project-4.jpg" alt="Branded promotional t-shirts and hats for a corporate event."></div>
+                <div class="gallery-item"><img src="images/gallery/project-5.jpg" alt="A collection of printed flyers and brochures for a marketing campaign."></div>
+                <div class="gallery-item"><img src="images/gallery/project-6.jpg" alt="Professionally designed and printed business cards with a modern aesthetic."></div>
+                <div class="gallery-item"><img src="images/gallery/project-7.jpg" alt="An annual report designed and printed for a local NGO in Harare."></div>
+                <div class="gallery-item"><img src="images/gallery/project-8.jpg" alt="Outdoor vinyl banner for a promotional event in Zimbabwe."></div>
+                <div class="gallery-item"><img src="images/gallery/project-9.jpg" alt="A sample of a complete corporate branding package, including letterheads and folders."></div>
             </div>
         </div>
     </section>
@@ -260,7 +271,7 @@
         <div id="chatbot-window">
             <div id="chatbot-header">
                 <div class="bot-info">
-                    <img src="facer new logo.png" alt="Facer Bot" class="bot-avatar">
+                    <img src="facer new logo.png" alt="Facer Designs AI Chatbot Avatar" class="bot-avatar">
                     <div>
                         <h4>Facer Bot</h4>
                         <span class="status">Online</span>
@@ -269,23 +280,23 @@
                 <button id="close-chat">&times;</button>
             </div>
             <div id="chatbot-messages">
-                <div class="message bot-message">
-                    Hi! I'm Facer Bot. How can I help you with your design or printing project today?
+                </div>
+                <div id="chatbot-input-container">
+                    <div id="chatbot-quick-replies"></div>
+                    <div id="chatbot-input">
+                        <input type="text" id="user-input" placeholder="Type a message...">
+                        <button id="send-message" aria-label="Send Message">
+                            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
-            <div id="chatbot-input">
-                <input type="text" id="user-input" placeholder="Type a message...">
-                <button id="send-message">
-                    <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
-                </button>
-            </div>
+            <button id="chatbot-toggle" aria-label="Chat with Facer Bot">
+                <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="white">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                </svg>
+            </button>
         </div>
-        <button id="chatbot-toggle" aria-label="Chat with Facer Bot">
-            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="white">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-            </svg>
-        </button>
-    </div>
 
     <script src="script.js"></script>
 </body>
