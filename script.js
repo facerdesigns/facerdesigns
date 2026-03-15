@@ -1,126 +1,143 @@
-// Smooth scrolling for navigation links
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
-        }
-    });
-});
-
-// Formspree handles the form submission automatically
-// No custom JavaScript needed - form will submit to Formspree
-
-// Add scroll effect to navbar
-window.addEventListener('scroll', function() {
-    const navbar = document.querySelector('.navbar');
-    if (window.scrollY > 50) {
-        navbar.style.boxShadow = '0 5px 20px rgba(0, 0, 0, 0.1)';
+// --- Navigation Bar Scroll Effect ---
+const navbar = document.querySelector('.navbar');
+window.addEventListener('scroll', () => {
+    if (window.scrollY > 20) {
+        navbar.classList.add('scrolled');
     } else {
-        navbar.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+        navbar.classList.remove('scrolled');
     }
 });
 
-/* Chatbot Functionality */
-document.addEventListener('DOMContentLoaded', function() {
-    const chatbotToggle = document.getElementById('chatbot-toggle');
-    const chatbotWindow = document.getElementById('chatbot-window');
-    const closeChat = document.getElementById('close-chat');
-    const userInput = document.getElementById('user-input');
-    const sendMessageBtn = document.getElementById('send-message');
-    const chatbotMessages = document.getElementById('chatbot-messages');
+// --- Lightbox Functionality ---
+const modal = document.getElementById('lightbox-modal');
+const modalImg = document.getElementById('lightbox-img');
+const galleryItems = document.querySelectorAll('.gallery-item');
+const closeModal = document.querySelector('.lightbox-close');
 
-    // Open Chat
-    chatbotToggle.addEventListener('click', () => {
-        chatbotWindow.style.display = 'flex';
-        chatbotToggle.style.display = 'none';
-        userInput.focus();
+galleryItems.forEach(item => {
+    item.addEventListener('click', () => {
+        if(modal) modal.style.display = 'block';
+        if(modalImg) modalImg.src = item.querySelector('img').src;
     });
+});
 
-    // Close Chat
-    closeChat.addEventListener('click', () => {
-        chatbotWindow.style.display = 'none';
-        chatbotToggle.style.display = 'flex';
+if(closeModal) {
+    closeModal.addEventListener('click', () => {
+        if(modal) modal.style.display = 'none';
     });
+}
 
-    // Send Message
-    function handleSendMessage() {
-        const text = userInput.value.trim();
-        if (text) {
-            addMessage(text, 'user');
-            userInput.value = '';
-            
-            // Simulate bot thinking/typing
-            setTimeout(() => {
-                const response = getBotResponse(text);
-                addMessage(response, 'bot');
-            }, 500);
-        }
+window.addEventListener('click', (e) => {
+    if (e.target == modal) {
+        if(modal) modal.style.display = 'none';
     }
+});
 
-    sendMessageBtn.addEventListener('click', handleSendMessage);
 
+// --- UPGRADED AI Chatbot Logic ---
+const chatbotToggle = document.getElementById('chatbot-toggle');
+const chatbotWindow = document.getElementById('chatbot-window');
+const closeChat = document.getElementById('close-chat');
+const sendMessage = document.getElementById('send-message');
+const userInput = document.getElementById('user-input');
+const chatbotMessages = document.getElementById('chatbot-messages');
+
+// [FIX] New, more intelligent introduction
+const initialBotMessage = "Hello! For a quick response, click the WhatsApp button below or call Tendekayi at +263 774 132 972. Otherwise, let me know how I can help with your design, branding, or printing needs.";
+
+function typeMessage(element, text) {
+    let index = 0;
+    element.textContent = '';
+    const interval = setInterval(() => {
+        if (index < text.length) {
+            element.textContent += text.charAt(index);
+            index++;
+        } else {
+            clearInterval(interval);
+        }
+    }, 30);
+}
+
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        if (chatbotWindow && chatbotWindow.style.display !== 'flex') {
+            chatbotWindow.style.display = 'flex';
+            const firstBotMessage = chatbotMessages.querySelector('.bot-message');
+            if(firstBotMessage) {
+                 typeMessage(firstBotMessage, initialBotMessage);
+            }
+        }
+    }, 2500);
+});
+
+if (chatbotToggle) {
+    chatbotToggle.addEventListener('click', () => {
+        if (chatbotWindow) chatbotWindow.style.display = 'flex';
+    });
+}
+if (closeChat) {
+    closeChat.addEventListener('click', () => {
+        if (chatbotWindow) chatbotWindow.style.display = 'none';
+    });
+}
+if (sendMessage) {
+    sendMessage.addEventListener('click', () => {
+        const message = userInput.value.trim();
+        if (message) {
+            addMessage(message, 'user-message');
+            userInput.value = '';
+            getBotResponse(message);
+        }
+    });
+}
+if (userInput) {
     userInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-            handleSendMessage();
+            sendMessage.click();
         }
     });
+}
 
-    // Add Message to Chat
-    function addMessage(text, sender) {
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message');
-        messageDiv.classList.add(sender === 'user' ? 'user-message' : 'bot-message');
-        messageDiv.textContent = text;
-        
-        chatbotMessages.appendChild(messageDiv);
+function addMessage(text, className) {
+    if (!chatbotMessages) return;
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', className);
+    messageElement.textContent = text;
+    chatbotMessages.appendChild(messageElement);
+    chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+}
+
+function getBotResponse(userMessage) {
+    const msg = userMessage.toLowerCase();
+    let botReply = "That's a great question. For the most accurate information, please send a detailed email to facerdesigns@gmail.com, and we'll get back to you within 24 hours.";
+
+    if (/\b(hello|hi|hey)\b/.test(msg)) {
+        botReply = "Hello again! How can I assist you with your project?";
+    }
+    else if (/\b(services?|help|offer|do)\b/.test(msg)) {
+        botReply = "We offer a full range of design and print services, including: Corporate Branding, Strategic Print Management, Signage, and Promotional Gifts. Are you interested in a specific service?";
+    }
+    else if (/\b(branding|logo|business card)\b/.test(msg)) {
+        botReply = "Our corporate branding service is very popular! We can create a cohesive brand package for you, including logos, business cards, and letterheads. Would you like a quote?";
+    }
+    else if (/\b(print|printing|brochure|flyer|report)\b/.test(msg)) {
+        botReply = "Our strategic print management ensures top-quality reproductions for projects like flyers, brochures, and annual reports. What kind of project are you planning?";
+    }
+    else if (/\b(price|quote|cost|how much)\b/.test(msg)) {
+        botReply = "We provide a free, detailed quote for every project within 24 hours. The best way to get started is to email your project specs to facerdesigns@gmail.com. Can I help with anything else?";
+    }
+    else if (/\b(contact|phone|email|number)\b/.test(msg)) {
+        botReply = "You can reach Tendekayi directly at +263 774 132 972 or email facerdesigns@gmail.com. We're based in Harare.";
+    }
+    else if (/\b(thanks|thank you|ok|bye)\b/.test(msg)) {
+        botReply = "You're welcome! Feel free to ask if anything else comes up. Have a great day!";
+    }
+
+    setTimeout(() => {
+        const botMessageElement = document.createElement('div');
+        botMessageElement.classList.add('message', 'bot-message');
+        chatbotMessages.appendChild(botMessageElement);
+        typeMessage(botMessageElement, botReply);
         chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
-    }
-
-    // Bot Logic (Simple Rule-Based)
-    function getBotResponse(input) {
-        const lowerInput = input.toLowerCase();
-
-        // Greeting
-        if (lowerInput.match(/\b(hi|hello|hey|greetings|morning|afternoon|evening)\b/)) {
-            return "Hello! Welcome to Facer Designs. How can I help you bring your ideas to life today?";
-        }
-
-        // Services
-        if (lowerInput.match(/\b(service|design|print|logo|flyer|banner|card|branding)\b/)) {
-            return "We offer a wide range of services including graphic design, corporate branding, large format printing (banners, billboards), and promotional gifts. Is there a specific project you have in mind?";
-        }
-
-        // Pricing / Quote
-        if (lowerInput.match(/\b(price|cost|quote|much|rate)\b/)) {
-            return "Our pricing depends on the specific requirements of your project (size, quantity, material). You can get a free, no-obligation quote by filling out the contact form below or calling us at 0774 132 972.";
-        }
-
-        // Contact
-        if (lowerInput.match(/\b(contact|phone|email|call|reach)\b/)) {
-            return "You can reach us at 0774 132 972 or email facerdesigns@gmail.com. We also have a contact form at the bottom of this page!";
-        }
-
-        // Location
-        if (lowerInput.match(/\b(location|where|address|located)\b/)) {
-            return "We are based in Harare, Zimbabwe. We serve clients throughout the city and surrounding areas.";
-        }
-
-        // Portfolio / Work
-        if (lowerInput.match(/\b(portfolio|work|example|gallery|picture)\b/)) {
-            return "You can check out our Portfolio section on this page to see examples of our recent work, including branding, signage, and print materials.";
-        }
-        
-        // Thank you
-        if (lowerInput.match(/\b(thanks|thank you|cool|great|ok|okay)\b/)) {
-            return "You're welcome! Feel free to ask if you need anything else.";
-        }
-
-        // Default
-        return "I'm not sure I understand. I can help with design services, printing quotes, or contact information. Or you can call us directly at 0774 132 972.";
-    }
-});
+    }, 600);
+}
