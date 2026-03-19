@@ -149,9 +149,12 @@
             <h2>Request a Quote for Your Organization</h2>
             <p>Ready to elevate your advocacy materials? Contact Tendekayi for a specialized consultation.</p>
             <form class="contact-form" action="https://formspree.io/f/xqedqlgw" method="post">
-                <input type="text" name="Organization_Name" placeholder="Organization Name" required>
-                <input type="email" name="Contact_Email" placeholder="Contact Email" required>
-                <textarea name="Project_Details" placeholder="Tell us about your upcoming project or advocacy campaign..." rows="5" required></textarea>
+                <label for="org-name" class="visually-hidden">Organization Name</label>
+                <input id="org-name" type="text" name="Organization_Name" placeholder="Organization Name" required>
+                <label for="contact-email" class="visually-hidden">Contact Email</label>
+                <input id="contact-email" type="email" name="Contact_Email" placeholder="Contact Email" required>
+                <label for="project-details" class="visually-hidden">Project Details</label>
+                <textarea id="project-details" name="Project_Details" placeholder="Tell us about your upcoming project or advocacy campaign..." rows="5" required></textarea>
                 <button type="submit" class="btn">Get My NGO Quote</button>
             </form>
         </div>
