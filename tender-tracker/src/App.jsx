@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { firebaseReady, db, auth } from "./firebase";
+import { signInAnonymously }       from "firebase/auth";
+import { doc, getDoc, setDoc }     from "firebase/firestore";
 
 // ─── NSPL Reference Data ──────────────────────────────────────────────────────
 const NSPL_DATA = [
@@ -220,9 +223,61 @@ export default function App() {
     catch { return PRAZ_CHECKLIST.map(i => i.defaultDone); }
   });
 
+  const [syncStatus, setSyncStatus] = useState("idle");
+  const [uid,        setUid]        = useState(null);
+  const [cloudReady, setCloudReady] = useState(false);
+
+  // ── localStorage (offline cache) ────────────────────────────────────────
   useEffect(() => { localStorage.setItem("facer_tenders",   JSON.stringify(tenders));    }, [tenders]);
   useEffect(() => { localStorage.setItem("facer_companies", JSON.stringify(companies));  }, [companies]);
   useEffect(() => { localStorage.setItem("facer_praz",      JSON.stringify(prazChecked));}, [prazChecked]);
+
+  // ── Firebase cloud sync ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!firebaseReady) return;
+    signInAnonymously(auth)
+      .then(cred => { setUid(cred.user.uid); return getDoc(doc(db, "facer", cred.user.uid)); })
+      .then(snap => {
+        if (snap && snap.exists()) {
+          const d = snap.data();
+          if (d.tenders)   setTenders(d.tenders);
+          if (d.companies) setCompanies(d.companies);
+          if (d.praz)      setPrazChecked(d.praz);
+        }
+        setCloudReady(true);
+      })
+      .catch(() => setCloudReady(true));
+  }, []);
+
+  useEffect(() => {
+    if (!uid || !cloudReady) return;
+    setSyncStatus("syncing");
+    setDoc(doc(db, "facer", uid), { tenders, companies, praz: prazChecked })
+      .then(() => setSyncStatus("synced"))
+      .catch(() => setSyncStatus("error"));
+  }, [tenders, companies, prazChecked, uid, cloudReady]);
+
+  // ── Deadline notifications ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") Notification.requestPermission();
+    if (Notification.permission !== "granted") return;
+    const today = new Date().toISOString().slice(0, 10);
+    const seen  = JSON.parse(localStorage.getItem("facer_notified") || "{}");
+    tenders
+      .filter(t => { const d = daysUntil(t.deadline); return d !== null && d >= 0 && d <= 7 && ["Identified","Bid Submitted"].includes(t.status); })
+      .forEach(t => {
+        const key = `${t.id}_${today}`;
+        if (seen[key]) return;
+        const d = daysUntil(t.deadline);
+        new Notification(`Deadline: ${t.entity}`, {
+          body: `${t.tenderNo} — ${d === 0 ? "TODAY" : `${d} day${d > 1 ? "s" : ""} left`}`,
+          icon: "/icon-192.png",
+        });
+        seen[key] = true;
+      });
+    localStorage.setItem("facer_notified", JSON.stringify(seen));
+  }, [tenders]);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [tab,            setTab]            = useState("tracker");
@@ -413,6 +468,11 @@ export default function App() {
           {urgentCount > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#2a0d0d", border: "1px solid #5a1414", borderRadius: 4, padding: "6px 10px", fontSize: 11, color: "#e05a5a" }}>
               <Icon name="warning" size={13} /> {urgentCount} deadline{urgentCount > 1 ? "s" : ""} within 7 days
+            </div>
+          )}
+          {firebaseReady && syncStatus !== "idle" && (
+            <div style={{ fontSize: 10, letterSpacing: 1, color: syncStatus === "synced" ? "#3a9a2a" : syncStatus === "error" ? "#e05a5a" : "#4a6a4a" }}>
+              {syncStatus === "syncing" ? "syncing…" : syncStatus === "synced" ? "● synced" : "● sync error"}
             </div>
           )}
           <a href="https://egp.praz.org.zw" target="_blank" rel="noopener noreferrer"
