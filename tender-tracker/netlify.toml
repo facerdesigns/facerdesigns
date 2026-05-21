@@ -1,0 +1,4 @@
+[build]
+  base    = "tender-tracker"
+  publish = "dist"
+  command = "npm run build"
