@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { firebaseReady, db, auth } from "./firebase";
+import { firebaseReady, db, auth, storage } from "./firebase";
 import { signInAnonymously }       from "firebase/auth";
 import { doc, getDoc, setDoc, collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 // ─── NSPL Reference Data ──────────────────────────────────────────────────────
 const NSPL_DATA = [
@@ -52,6 +53,16 @@ const DOC_CHECKLIST = [
 ];
 
 const defaultDocs = () => Object.fromEntries(DOC_CHECKLIST.map(d => [d.key, false]));
+
+// ─── Vault document slots ─────────────────────────────────────────────────────
+const VAULT_DOCS = [
+  { key: "cr14",       label: "CR14",               desc: "Company Registration Certificate (No. 9845/2021)", defaultUrl: "/docs/cr6.pdf",             defaultName: "cr6.pdf"                        },
+  { key: "tax",        label: "Tax Clearance",       desc: "Valid ZIMRA Tax Clearance — August 2026",         defaultUrl: "/docs/tax-clearance-2026.pdf", defaultName: "Facer Designs Tax Clearance 2026.pdf" },
+  { key: "profile",    label: "Company Profile",     desc: "Facer Designs company profile PDF",               defaultUrl: "/docs/company-profile-2026.pdf",defaultName: "Tendekayi Facer Designs Profile 2026.pdf" },
+  { key: "letterhead", label: "Letterhead",          desc: "Branded Facer Designs letterhead",                defaultUrl: null,                           defaultName: null                             },
+  { key: "bank",       label: "Bank Details",        desc: "CBZ Bank — CBZ Bank, A/C 0292134700035",         defaultUrl: null,                           defaultName: null                             },
+  { key: "quotation",  label: "Quotation Template",  desc: "Formal BOQ / quotation for tender submission",    defaultUrl: null,                           defaultName: null                             },
+];
 
 // ─── Lists ────────────────────────────────────────────────────────────────────
 const CATEGORIES = ["Graphic Design & Branding", "Printing & Signage", "Corporate Wear", "Web Development", "Events & Activation", "Other"];
@@ -129,6 +140,8 @@ const Icon = ({ name, size = 16 }) => {
     chart:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
     radar:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="2"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 6a6 6 0 0 1 6 6"/><path d="M12 10a2 2 0 0 1 2 2"/><line x1="12" y1="12" x2="19.07" y2="4.93"/></svg>,
     import:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v10m0 0l-3-3m3 3l3-3"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg>,
+    upload:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+    file:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>,
   };
   return icons[name] || null;
 };
@@ -239,6 +252,8 @@ export default function App() {
   const [radarTenders,  setRadarTenders]  = useState([]);
   const [radarFilter,   setRadarFilter]   = useState("All");
   const [radarSearch,   setRadarSearch]   = useState("");
+  const [storedDocs,    setStoredDocs]    = useState({});
+  const [uploadingDoc,  setUploadingDoc]  = useState(null);
 
   // ── localStorage (offline cache) ────────────────────────────────────────
   useEffect(() => { localStorage.setItem("facer_tenders",   JSON.stringify(tenders));    }, [tenders]);
@@ -253,9 +268,10 @@ export default function App() {
       .then(snap => {
         if (snap && snap.exists()) {
           const d = snap.data();
-          if (d.tenders)   setTenders(d.tenders);
-          if (d.companies) setCompanies(d.companies);
-          if (d.praz)      setPrazChecked(d.praz);
+          if (d.tenders)    setTenders(d.tenders);
+          if (d.companies)  setCompanies(d.companies);
+          if (d.praz)       setPrazChecked(d.praz);
+          if (d.storedDocs) setStoredDocs(d.storedDocs);
         }
         setCloudReady(true);
       })
@@ -264,11 +280,12 @@ export default function App() {
 
   useEffect(() => {
     if (!uid || !cloudReady) return;
-    setSyncStatus("syncing");
-    setDoc(doc(db, "facer", uid), { tenders, companies, praz: prazChecked })
+    setDoc(doc(db, "facer", uid), { tenders, companies, praz: prazChecked, storedDocs })
       .then(() => setSyncStatus("synced"))
       .catch(() => setSyncStatus("error"));
-  }, [tenders, companies, prazChecked, uid, cloudReady]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSyncStatus("syncing");
+  }, [tenders, companies, prazChecked, storedDocs, uid, cloudReady]);
 
   // ── Deadline notifications ───────────────────────────────────────────────
   useEffect(() => {
@@ -366,10 +383,12 @@ export default function App() {
 
   // Apply a radar tender directly: adds to tracker (all docs ticked, Bid Submitted) then opens Send Bid
   const applyRadarTender = (rt) => {
+    // eslint-disable-next-line react-hooks/purity
+    const ts       = Date.now();
     const refMatch = (rt.description || "").match(/Ref:\s*(\S+)/);
     const newTender = {
-      id:          Date.now(),
-      tenderNo:    refMatch?.[1] || `PRAZ-${rt.tender_id?.replace("PRAZ-", "") || Date.now()}`,
+      id:          ts,
+      tenderNo:    refMatch?.[1] || `PRAZ-${rt.tender_id?.replace("PRAZ-", "") || ts}`,
       entity:      rt.entity || "",
       description: rt.title  || "",
       category:    RADAR_CAT_MAP[rt.category] || "Other",
@@ -425,7 +444,7 @@ export default function App() {
     w.document.write(`<!DOCTYPE html><html><head><title>Bid — ${tender.tenderNo}</title>
       <style>body{font-family:'Courier New',monospace;max-width:780px;margin:40px auto;color:#111;line-height:1.65;font-size:12.5px;}
       pre{white-space:pre-wrap;font-family:inherit;}@media print{@page{margin:20mm;}}</style></head>
-      <body><pre>${content}</pre><script>window.onload=function(){window.print();}<\/script></body></html>`);
+      <body><pre>${content}</pre><script>window.onload=function(){window.print();}</` + `script></body></html>`);
     w.document.close();
   };
 
@@ -435,6 +454,36 @@ export default function App() {
     const body    = encodeURIComponent(generateBidDocument(tender, co));
     const to      = encodeURIComponent(co?.email || "");
     window.open(`https://mail.google.com/mail/?view=cm&to=${to}&su=${subject}&body=${body}`, "_blank");
+  };
+
+  // ── Document vault handlers ───────────────────────────────────────────────
+  const uploadDoc = async (key, file) => {
+    if (!uid || !storage || !file) return;
+    setUploadingDoc(key);
+    try {
+      const ext  = file.name.split(".").pop();
+      const path = `facer/${uid}/${key}.${ext}`;
+      const sRef = storageRef(storage, path);
+      await uploadBytes(sRef, file);
+      const url  = await getDownloadURL(sRef);
+      setStoredDocs(prev => ({
+        ...prev,
+        [key]: { name: file.name, url, uploadedAt: new Date().toISOString().slice(0, 10), path },
+      }));
+    } catch (e) {
+      console.error("Upload failed", e);
+    } finally {
+      setUploadingDoc(null);
+    }
+  };
+
+  const deleteVaultDoc = async (key) => {
+    const entry = storedDocs[key];
+    if (!entry) return;
+    try {
+      if (storage && entry.path) await deleteObject(storageRef(storage, entry.path));
+    } catch { /* storage delete is best-effort */ }
+    setStoredDocs(prev => { const n = { ...prev }; delete n[key]; return n; });
   };
 
   // ── Company handlers ──────────────────────────────────────────────────────
@@ -545,7 +594,7 @@ export default function App() {
 
       {/* ── Tabs ── */}
       <div style={{ borderBottom: "1px solid #1e2e1e", padding: "0 24px", display: "flex", overflowX: "auto" }}>
-        {[["tracker","Tender Tracker"],["radar","Radar"],["clients","Clients"],["nspl","NSPL Prices"],["stats","Pipeline Stats"]].map(([key, label]) => (
+        {[["tracker","Tender Tracker"],["radar","Radar"],["docs","Doc Vault"],["clients","Clients"],["nspl","NSPL Prices"],["stats","Pipeline Stats"]].map(([key, label]) => (
           <button key={key} className={`tab-btn ${tab === key ? "active" : ""}`} onClick={() => setTab(key)}>{label}</button>
         ))}
       </div>
@@ -808,6 +857,82 @@ export default function App() {
                   })}
                 </>
               )}
+            </div>
+          );
+        })()}
+
+        {/* ══════════════════════ DOCS TAB ══════════════════════ */}
+        {tab === "docs" && (() => {
+          const uploadedCount = VAULT_DOCS.filter(d => storedDocs[d.key] || d.defaultUrl).length;
+          return (
+            <div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 12, marginBottom: 20 }}>
+                <div className="card" style={{ textAlign: "center" }}>
+                  <div className="stat-val">{uploadedCount}/{VAULT_DOCS.length}</div>
+                  <div className="stat-label">Documents Ready</div>
+                </div>
+                <div className="card" style={{ textAlign: "center" }}>
+                  <div className="stat-val" style={{ fontSize: uploadedCount === VAULT_DOCS.length ? 28 : 20, color: uploadedCount === VAULT_DOCS.length ? "#3de898" : "#e0b44a" }}>
+                    {uploadedCount === VAULT_DOCS.length ? "READY" : "PENDING"}
+                  </div>
+                  <div className="stat-label">Bid Pack Status</div>
+                </div>
+              </div>
+
+              <div style={{ background: "#0f1a0f", border: "1px solid #1e3a1e", borderRadius: 6, padding: "12px 16px", marginBottom: 20, fontSize: 11, color: "#6a8a5a", lineHeight: 1.7 }}>
+                Upload your standard bid documents once. They will appear in the <strong style={{ color: "#9ac87a" }}>Send Bid</strong> modal as download links — download each file and attach it manually to your Gmail compose window.
+                {!firebaseReady && <div style={{ marginTop: 6, color: "#e0b44a" }}>Firebase not configured — document URLs will not persist across sessions.</div>}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {VAULT_DOCS.map(vd => {
+                  const entry = storedDocs[vd.key];
+                  const isUploading = uploadingDoc === vd.key;
+                  const activeUrl  = entry?.url || vd.defaultUrl;
+                  const activeName = entry?.name || vd.defaultName;
+                  const isBuiltIn  = !entry && vd.defaultUrl;
+                  const isReady    = !!activeUrl;
+                  return (
+                    <div key={vd.key} className="card" style={{ borderLeft: entry ? "3px solid #3d7a35" : isBuiltIn ? "3px solid #1a5a3a" : "1px solid #1e2e1e" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 200 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                            <span style={{ color: isReady ? "#7ec86a" : "#4a6a4a" }}><Icon name="file" size={14} /></span>
+                            <span style={{ fontSize: 13, color: isReady ? "#ccd5cc" : "#7a9a7a", fontWeight: 500 }}>{vd.label}</span>
+                            {entry    && <span style={{ fontSize: 10, background: "#1a3a14", border: "1px solid #2d7a27", color: "#7ec86a",  padding: "2px 6px", borderRadius: 2, letterSpacing: 1 }}>UPLOADED</span>}
+                            {isBuiltIn && <span style={{ fontSize: 10, background: "#0f2a1a", border: "1px solid #1a4a2a", color: "#5a9a6a", padding: "2px 6px", borderRadius: 2, letterSpacing: 1 }}>BUILT-IN</span>}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#4a6a4a" }}>{vd.desc}</div>
+                          {activeName && (
+                            <div style={{ fontSize: 10, color: "#3a5a3a", marginTop: 4 }}>
+                              {activeName}{entry ? ` · Uploaded ${entry.uploadedAt}` : ""}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                          {activeUrl && (
+                            <a href={activeUrl} target="_blank" rel="noopener noreferrer"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#0f1a0f", border: "1px solid #2d5a27", color: "#7ec86a", borderRadius: 4, padding: "6px 12px", fontSize: 11, textDecoration: "none", fontFamily: "inherit", letterSpacing: 1 }}>
+                              <Icon name="download" size={12} /> Download
+                            </a>
+                          )}
+                          {entry && (
+                            <button className="btn-ghost" style={{ color: "#6a3a3a", borderColor: "#3a1a1a" }} onClick={() => deleteVaultDoc(vd.key)}>
+                              <Icon name="trash" size={12} />
+                            </button>
+                          )}
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, background: isUploading ? "#1a2a1a" : "#2d5a27", border: "1px solid #3d7a35", color: isUploading ? "#4a7a4a" : "#ccd5cc", borderRadius: 4, padding: "6px 14px", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", cursor: isUploading ? "default" : "pointer", fontFamily: "inherit" }}>
+                            <Icon name="upload" size={12} />
+                            {isUploading ? "Uploading…" : entry ? "Replace" : "Upload"}
+                            <input type="file" accept=".pdf,.doc,.docx,.jpg,.png" style={{ display: "none" }} disabled={isUploading}
+                              onChange={e => { const f = e.target.files?.[0]; if (f) uploadDoc(vd.key, f); e.target.value = ""; }} />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })()}
@@ -1189,6 +1314,41 @@ export default function App() {
               <div style={{ background: "#070d07", border: "1px solid #1e2e1e", borderRadius: 4, padding: 16, marginBottom: 14, maxHeight: 340, overflowY: "auto" }}>
                 <pre style={{ fontSize: 11, color: "#8aad8a", lineHeight: 1.7, fontFamily: "'DM Mono','Courier New',monospace", whiteSpace: "pre-wrap" }}>{bidText}</pre>
               </div>
+
+              {/* Stored documents */}
+              {(() => {
+                const available = VAULT_DOCS.filter(vd => storedDocs[vd.key]?.url || vd.defaultUrl);
+                const missing   = VAULT_DOCS.filter(vd => !storedDocs[vd.key]?.url && !vd.defaultUrl);
+                return (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, letterSpacing: 2, color: "#4a6a4a", textTransform: "uppercase", marginBottom: 8 }}>Attachments — Doc Vault</div>
+                    {available.length === 0 ? (
+                      <div style={{ fontSize: 11, color: "#4a5a3a", background: "#0f140f", border: "1px solid #1e2e1e", borderRadius: 4, padding: "10px 14px" }}>
+                        No documents uploaded yet. Go to <strong style={{ color: "#7ec86a" }}>Doc Vault</strong> tab to upload your bid pack once.
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                          {available.map(vd => (
+                            <a key={vd.key} href={storedDocs[vd.key]?.url || vd.defaultUrl} target="_blank" rel="noopener noreferrer"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#0f1a0f", border: "1px solid #2d5a27", color: "#7ec86a", borderRadius: 4, padding: "5px 10px", fontSize: 11, textDecoration: "none", fontFamily: "inherit" }}>
+                              <Icon name="download" size={11} /> {vd.label}
+                            </a>
+                          ))}
+                        </div>
+                        {missing.length > 0 && (
+                          <div style={{ fontSize: 10, color: "#4a5a3a" }}>
+                            Not uploaded: {missing.map(d => d.label).join(", ")}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 10, color: "#3a5a3a", marginTop: 6, lineHeight: 1.5 }}>
+                          Download each file above, then attach them to the Gmail compose window.
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div style={{ fontSize: 10, color: "#2d4a2d", marginBottom: 14, lineHeight: 1.6 }}>
                 <strong style={{ color: "#4a7a4a" }}>Download PDF</strong> — opens print dialog, save as PDF to attach. &nbsp;|&nbsp;
