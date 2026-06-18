@@ -1,0 +1,7 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python run.py scrape --source praz && python run.py sync --min-score 30"
+cronSchedule = "0 4 * * *"
+restartPolicyType = "never"

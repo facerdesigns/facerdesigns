@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { firebaseReady, db, auth } from "./firebase";
 import { signInAnonymously }       from "firebase/auth";
-import { doc, getDoc, setDoc }     from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, onSnapshot, query, orderBy } from "firebase/firestore";
 
 // ─── NSPL Reference Data ──────────────────────────────────────────────────────
 const NSPL_DATA = [
@@ -31,7 +31,7 @@ const PRAZ_CHECKLIST = [
   { label: "Company Registration (CR14) — Reg No. 9845/2021",               defaultDone: true  },
   { label: "Tax Clearance Certificate — Valid to August 2026",               defaultDone: true  },
   { label: "CR14 Name Update (Tendekayi Kulture Mbire) — pending ID update", defaultDone: false },
-  { label: "eGP System Account — registration paused (system upgrade)",      defaultDone: false },
+  { label: "eGP System Account — system is live, complete registration",     defaultDone: false },
   { label: "Category Application — Graphic Design, Printing, Signage, Web",  defaultDone: false },
   { label: "PRAZ Registration Fee — US$130.00 via CBZ Bank",                 defaultDone: false },
   { label: "Key Pair Setup — for encrypted bid submissions",                  defaultDone: false },
@@ -65,6 +65,14 @@ const STATUS_COLORS = {
   "Won":             { bg: "#0d2a1a", border: "#0d5a2a", text: "#3de898", dot: "#3de898" },
   "Lost":            { bg: "#2a0d0d", border: "#5a1414", text: "#e05a5a", dot: "#e05a5a" },
   "No Bid":          { bg: "#1a1a1a", border: "#333",    text: "#777",    dot: "#555"    },
+};
+
+const RADAR_CAT_MAP = {
+  C4: "Graphic Design & Branding",
+  C7: "Printing & Signage",
+  C8: "Web Development",
+  J2: "Printing & Signage",
+  J3: "Corporate Wear",
 };
 
 const NSPL_CATEGORY_MAP = {
@@ -119,6 +127,8 @@ const Icon = ({ name, size = 16 }) => {
     phone:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.13 6.13l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
     eye:      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
     chart:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
+    radar:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="2"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 6a6 6 0 0 1 6 6"/><path d="M12 10a2 2 0 0 1 2 2"/><line x1="12" y1="12" x2="19.07" y2="4.93"/></svg>,
+    import:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v10m0 0l-3-3m3 3l3-3"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg>,
   };
   return icons[name] || null;
 };
@@ -223,9 +233,12 @@ export default function App() {
     catch { return PRAZ_CHECKLIST.map(i => i.defaultDone); }
   });
 
-  const [syncStatus, setSyncStatus] = useState("idle");
-  const [uid,        setUid]        = useState(null);
-  const [cloudReady, setCloudReady] = useState(false);
+  const [syncStatus,    setSyncStatus]    = useState("idle");
+  const [uid,           setUid]           = useState(null);
+  const [cloudReady,    setCloudReady]    = useState(false);
+  const [radarTenders,  setRadarTenders]  = useState([]);
+  const [radarFilter,   setRadarFilter]   = useState("All");
+  const [radarSearch,   setRadarSearch]   = useState("");
 
   // ── localStorage (offline cache) ────────────────────────────────────────
   useEffect(() => { localStorage.setItem("facer_tenders",   JSON.stringify(tenders));    }, [tenders]);
@@ -278,6 +291,16 @@ export default function App() {
       });
     localStorage.setItem("facer_notified", JSON.stringify(seen));
   }, [tenders]);
+
+  // ── Radar: listen to Firestore radar_tenders collection ─────────────────
+  useEffect(() => {
+    if (!firebaseReady || !db) return;
+    const q  = query(collection(db, "radar_tenders"), orderBy("score", "desc"));
+    const unsub = onSnapshot(q, snap => {
+      setRadarTenders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, () => {});
+    return unsub;
+  }, []);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [tab,            setTab]            = useState("tracker");
@@ -333,7 +356,12 @@ export default function App() {
   };
 
   // ── Tender handlers ───────────────────────────────────────────────────────
-  const openAdd  = () => { setForm(BLANK_TENDER); setEditTender(null); setShowForm(true); };
+  const openAdd  = (prefill) => {
+    const safe = prefill && !(prefill instanceof Event) ? prefill : {};
+    setForm({ ...BLANK_TENDER, ...safe });
+    setEditTender(null);
+    setShowForm(true);
+  };
   const openEdit = (t) => { setForm({ ...t }); setEditTender(t.id); setShowForm(true); };
 
   const saveForm = () => {
@@ -489,7 +517,7 @@ export default function App() {
 
       {/* ── Tabs ── */}
       <div style={{ borderBottom: "1px solid #1e2e1e", padding: "0 24px", display: "flex", overflowX: "auto" }}>
-        {[["tracker","Tender Tracker"],["clients","Clients"],["nspl","NSPL Prices"],["stats","Pipeline Stats"]].map(([key, label]) => (
+        {[["tracker","Tender Tracker"],["radar","Radar"],["clients","Clients"],["nspl","NSPL Prices"],["stats","Pipeline Stats"]].map(([key, label]) => (
           <button key={key} className={`tab-btn ${tab === key ? "active" : ""}`} onClick={() => setTab(key)}>{label}</button>
         ))}
       </div>
@@ -617,6 +645,155 @@ export default function App() {
             })}
           </div>
         )}
+
+        {/* ══════════════════════ RADAR TAB ══════════════════════ */}
+        {tab === "radar" && (() => {
+          const CAT_FILTERS = ["All","C4","C7","C8","J2","J3"];
+
+          const filtered = radarTenders.filter(t => {
+            const matchCat = radarFilter === "All" || t.category === radarFilter;
+            const q = radarSearch.toLowerCase();
+            const matchQ  = !q || [t.title, t.entity, t.category, t.description].join(" ").toLowerCase().includes(q);
+            return matchCat && matchQ;
+          });
+
+          const highCount = radarTenders.filter(t => t.score >= 70).length;
+          const lastScan  = radarTenders.length > 0
+            ? new Date(radarTenders[0].scraped_at).toLocaleDateString("en-GB", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" })
+            : null;
+
+          const scoreColor = (s) => s >= 70 ? "#3de898" : s >= 50 ? "#e0b44a" : "#6a6a6a";
+
+          const importTender = (rt) => {
+            openAdd({
+              tenderNo:    rt.description?.match(/Ref:\s*(\S+)/)?.[1] || "",
+              entity:      rt.entity || "",
+              description: rt.title  || "",
+              deadline:    rt.deadline || "",
+              source:      rt.source === "PRAZ" ? "eGP Portal" : rt.source || "",
+              category:    RADAR_CAT_MAP[rt.category] || "Other",
+              notes:       `Score ${rt.score}/100 — ${rt.description || ""}`,
+            });
+          };
+
+          return (
+            <div>
+              {/* Stats row */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 12, marginBottom: 20 }}>
+                {[
+                  { val: radarTenders.length, label: "Tenders Scanned" },
+                  { val: highCount,            label: "Strong Matches (70+)" },
+                  { val: filtered.length,      label: "Showing" },
+                ].map(({ val, label }) => (
+                  <div key={label} className="card" style={{ textAlign: "center" }}>
+                    <div className="stat-val">{val}</div>
+                    <div className="stat-label">{label}</div>
+                  </div>
+                ))}
+                {lastScan && (
+                  <div className="card" style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: "#5a9a4a", marginTop: 6 }}>{lastScan}</div>
+                    <div className="stat-label">Last Scan</div>
+                  </div>
+                )}
+              </div>
+
+              {radarTenders.length === 0 ? (
+                <div style={{ background: "#0f140f", border: "1px solid #2d5a27", borderRadius: 6, padding: "32px 24px", textAlign: "center" }}>
+                  <div style={{ fontSize: 16, color: "#4a7a3a", marginBottom: 12 }}><Icon name="radar" size={32} /></div>
+                  <div style={{ fontSize: 13, color: "#7ec86a", letterSpacing: 1, marginBottom: 8 }}>No radar data yet</div>
+                  <div style={{ fontSize: 11, color: "#4a6a4a", lineHeight: 1.8 }}>
+                    Run the scraper to populate this feed:<br />
+                    <code style={{ background: "#111", padding: "2px 8px", borderRadius: 3, color: "#9ac87a", fontSize: 11 }}>
+                      cd tender-tracker/radar && python run.py scrape --pages 3
+                    </code>
+                    <br />
+                    Then sync to Firestore:<br />
+                    <code style={{ background: "#111", padding: "2px 8px", borderRadius: 3, color: "#9ac87a", fontSize: 11 }}>
+                      python run.py sync
+                    </code>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Toolbar */}
+                  <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+                    <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
+                      <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#4a6a4a" }}><Icon name="search" size={14} /></span>
+                      <input placeholder="Search radar…" value={radarSearch} onChange={e => setRadarSearch(e.target.value)} style={{ paddingLeft: 32 }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {CAT_FILTERS.map(f => (
+                        <button key={f} onClick={() => setRadarFilter(f)}
+                          style={{ background: radarFilter === f ? "#2d5a27" : "transparent", border: `1px solid ${radarFilter === f ? "#4a9a3a" : "#2a3d2a"}`, color: radarFilter === f ? "#ccd5cc" : "#4a6a4a", borderRadius: 4, padding: "5px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1 }}>
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tender cards */}
+                  {filtered.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "40px 0", color: "#2d5a27", fontSize: 11, letterSpacing: 2 }}>No matches for current filter</div>
+                  ) : filtered.map(t => {
+                    const days = t.deadline ? Math.ceil((new Date(t.deadline) - new Date()) / 86400000) : null;
+                    const isUrgent = days !== null && days >= 0 && days <= 3;
+                    const isSoon   = days !== null && days >  3 && days <= 7;
+
+                    return (
+                      <div key={t.id} className="card" style={{ marginBottom: 10, borderLeft: isUrgent ? "3px solid #e05a5a" : isSoon ? "3px solid #e0b44a" : t.score >= 70 ? "3px solid #3de898" : "1px solid #1e2e1e" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                          <div style={{ flex: 1, minWidth: 200 }}>
+                            {/* Badges */}
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>
+                              <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, color: scoreColor(t.score), letterSpacing: 1, minWidth: 42 }}>{t.score}<span style={{ fontSize: 10, color: "#3a5a3a" }}>/100</span></span>
+                              {t.category && (
+                                <span style={{ fontSize: 10, background: "#0f1a0f", border: "1px solid #2a4a2a", color: "#7ec86a", padding: "2px 7px", borderRadius: 2, letterSpacing: 1 }}>{t.category}</span>
+                              )}
+                              <span style={{ fontSize: 10, background: "#0f1520", border: "1px solid #1a2a3a", color: "#5a7a9a", padding: "2px 7px", borderRadius: 2 }}>{t.source}</span>
+                              {t.score >= 70 && <span style={{ fontSize: 10, color: "#3de898", letterSpacing: 1 }}>STRONG MATCH</span>}
+                            </div>
+
+                            <div style={{ fontSize: 14, color: "#ccd5cc", marginBottom: 2 }}>{t.entity}</div>
+                            <div style={{ fontSize: 12, color: "#6a8a6a", lineHeight: 1.5, marginBottom: 4 }}>{t.title}</div>
+                            {t.description && (
+                              <div style={{ fontSize: 11, color: "#3a5a3a", marginBottom: 4, fontStyle: "italic" }}>{t.description}</div>
+                            )}
+                          </div>
+
+                          {/* Right col */}
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, minWidth: 120 }}>
+                            {t.deadline && (
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ fontSize: 12, color: isUrgent ? "#e05a5a" : isSoon ? "#e0b44a" : "#4a6a4a", display: "flex", alignItems: "center", gap: 4 }}>
+                                  <Icon name="calendar" size={11} /> {t.deadline}
+                                </div>
+                                {days !== null && (
+                                  <div style={{ fontSize: 10, color: days < 0 ? "#e05a5a" : days <= 7 ? "#e0b44a" : "#3a5a3a" }}>
+                                    {days < 0 ? "CLOSED" : days === 0 ? "TODAY" : `${days}d left`}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                              <a href={t.source_url} target="_blank" rel="noopener noreferrer"
+                                style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #2a3d2a", color: "#4a6a4a", borderRadius: 4, padding: "5px 9px", fontSize: 11, textDecoration: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                                <Icon name="link" size={11} /> View
+                              </a>
+                              <button className="btn-primary" style={{ padding: "5px 10px", fontSize: 11 }} onClick={() => importTender(t)}>
+                                <Icon name="import" size={12} /> Import
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ══════════════════════ CLIENTS TAB ══════════════════════ */}
         {tab === "clients" && (() => {
