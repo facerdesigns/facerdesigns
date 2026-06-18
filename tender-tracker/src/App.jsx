@@ -364,6 +364,34 @@ export default function App() {
   };
   const openEdit = (t) => { setForm({ ...t }); setEditTender(t.id); setShowForm(true); };
 
+  // Apply a radar tender directly: adds to tracker (all docs ticked, Bid Submitted) then opens Send Bid
+  const applyRadarTender = (rt) => {
+    const refMatch = (rt.description || "").match(/Ref:\s*(\S+)/);
+    const newTender = {
+      id:          Date.now(),
+      tenderNo:    refMatch?.[1] || `PRAZ-${rt.tender_id?.replace("PRAZ-", "") || Date.now()}`,
+      entity:      rt.entity || "",
+      description: rt.title  || "",
+      category:    RADAR_CAT_MAP[rt.category] || "Other",
+      value:       "",
+      currency:    "USD",
+      deadline:    rt.deadline || "",
+      status:      "Bid Submitted",
+      source:      rt.source === "PRAZ" ? "eGP Portal" : rt.source || "",
+      contact:     "",
+      notes:       `Score ${rt.score}/100 — auto-applied from Radar. ${rt.description || ""}`.trim(),
+      added:       new Date().toISOString().slice(0, 10),
+      docs:        Object.fromEntries(DOC_CHECKLIST.map(d => [d.key, true])),
+    };
+    setTenders(ts => [newTender, ...ts]);
+    if (newTender.entity && !companies.find(c => c.name.toLowerCase() === newTender.entity.toLowerCase())) {
+      setCompanies(cs => [...cs, { id: `c${Date.now()}`, name: newTender.entity, sector: "Other", contact: "", email: "", phone: "", address: "", notes: "", added: newTender.added }]);
+    }
+    setTab("tracker");
+    setBidTender(newTender);
+    setShowBidModal(true);
+  };
+
   const saveForm = () => {
     if (!form.tenderNo || !form.entity || !form.description) return;
     if (editTender) {
@@ -664,17 +692,6 @@ export default function App() {
 
           const scoreColor = (s) => s >= 70 ? "#3de898" : s >= 50 ? "#e0b44a" : "#6a6a6a";
 
-          const importTender = (rt) => {
-            openAdd({
-              tenderNo:    rt.description?.match(/Ref:\s*(\S+)/)?.[1] || "",
-              entity:      rt.entity || "",
-              description: rt.title  || "",
-              deadline:    rt.deadline || "",
-              source:      rt.source === "PRAZ" ? "eGP Portal" : rt.source || "",
-              category:    RADAR_CAT_MAP[rt.category] || "Other",
-              notes:       `Score ${rt.score}/100 — ${rt.description || ""}`,
-            });
-          };
 
           return (
             <div>
@@ -780,8 +797,8 @@ export default function App() {
                                 style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #2a3d2a", color: "#4a6a4a", borderRadius: 4, padding: "5px 9px", fontSize: 11, textDecoration: "none", cursor: "pointer", fontFamily: "inherit" }}>
                                 <Icon name="link" size={11} /> View
                               </a>
-                              <button className="btn-primary" style={{ padding: "5px 10px", fontSize: 11 }} onClick={() => importTender(t)}>
-                                <Icon name="import" size={12} /> Import
+                              <button className="btn-primary" style={{ padding: "5px 10px", fontSize: 11, background: "#1a3a5a", borderColor: "#27508a" }} onClick={() => applyRadarTender(t)}>
+                                <Icon name="send" size={12} /> Apply
                               </button>
                             </div>
                           </div>
